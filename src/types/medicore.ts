@@ -43,16 +43,30 @@ export interface BedAsset {
   lastSanitized: string;
 }
 
+export interface DrugItem {
+  id: string;
+  code: string;
+  name: string;
+  category: "Antibiotik" | "Analgesik" | "Kardiovaskular" | "Cairan Infus" | "Emergency Ampul";
+  stock: number;
+  unit: string;
+  pricePerUnit: number;
+  contraindications: string[];
+}
+
 export interface PrescriptionOrder {
   id: string;
   patientId: string;
   patientName: string;
+  mrn: string;
   doctorName: string;
   medicineName: string;
   dosage: string;
   instructions: string;
   status: "PENDING" | "DISPENSED";
   hasInteractionRisk: boolean;
+  interactionWarning?: string;
+  totalCost: number;
   createdAt: string;
 }
 
@@ -61,11 +75,15 @@ export interface MedicalInvoice {
   patientId: string;
   patientName: string;
   mrn: string;
+  nik: string;
+  ward: string;
   inacbgCode: string; // ICD-10 based tariff
-  totalAmount: number;
-  coverageAmount: number;
-  patientPayAmount: number;
-  insuranceType: string;
+  diagnosisDescription: string;
+  hospitalRealCost: number;
+  inacbgTariffCovered: number;
+  patientOutOfPocket: number;
+  insuranceType: "BPJS Kesehatan" | "Asuransi Swasta" | "Umum / Mandiri";
   status: "LUNAS" | "MENUNGGU_VERIFIKASI";
   issuedDate: string;
+  doctorName: string;
 }

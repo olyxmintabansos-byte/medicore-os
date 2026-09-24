@@ -17,15 +17,18 @@ import { useMediCore } from "@/context/MediCoreContext";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { patients, beds } = useMediCore();
+  const { patients, beds, prescriptions, invoices } = useMediCore();
 
   const resuscitationCount = patients.filter((p) => p.triageLevel === "RESUSCITATION" && p.status === "ADMITTED").length;
   const occupiedBeds = beds.filter((b) => b.status === "OCCUPIED").length;
   const occupancyRate = Math.round((occupiedBeds / beds.length) * 100) || 0;
+  const pendingRxCount = prescriptions.filter((rx) => rx.status === "PENDING").length;
 
   const navLinks = [
     { href: "/", label: "Pusat Komando IGD", icon: HeartPulse },
-    { href: "/triage", label: "Triase & Alokasi Bed", icon: Bed },
+    { href: "/triage", label: "Triase & Bed", icon: Bed },
+    { href: "/pharmacy", label: "Smart Farmasi", icon: Pill, badge: pendingRxCount },
+    { href: "/billing", label: "Kasir & INA-CBG", icon: Receipt },
   ];
 
   return (
@@ -50,7 +53,7 @@ export function Navbar() {
         </div>
 
         {/* Center Nav Links */}
-        <nav className="hidden md:flex items-center gap-1 bg-[#090f1e] p-1 rounded-2xl border border-slate-800">
+        <nav className="hidden lg:flex items-center gap-1 bg-[#090f1e] p-1 rounded-2xl border border-slate-800">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href;
@@ -66,6 +69,11 @@ export function Navbar() {
               >
                 <Icon className="w-4 h-4" />
                 <span>{link.label}</span>
+                {link.badge !== undefined && link.badge > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black">
+                    {link.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -76,14 +84,14 @@ export function Navbar() {
           {resuscitationCount > 0 && (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-500/40 text-red-400 font-bold animate-pulse">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>{resuscitationCount} Kritis (Merah)</span>
+              <span>{resuscitationCount} Cito (Merah)</span>
             </div>
           )}
 
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0c1326] border border-slate-800 text-[11px]">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0c1326] border border-slate-800 text-[11px]">
             <Bed className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-slate-400">Bed Occupancy:</span>
-            <strong className="text-cyan-400">{occupancyRate}% ({occupiedBeds}/{beds.length})</strong>
+            <span className="text-slate-400">Bed:</span>
+            <strong className="text-cyan-400">{occupancyRate}%</strong>
           </div>
 
           <a

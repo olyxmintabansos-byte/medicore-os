@@ -5,21 +5,33 @@ import confetti from "canvas-confetti";
 import {
   Patient,
   BedAsset,
+  DrugItem,
   PrescriptionOrder,
   MedicalInvoice,
   TriageLevel,
   WardType,
 } from "@/types/medicore";
 
+export const MASTER_DRUGS: DrugItem[] = [
+  { id: "dr-1", code: "MED-CLP", name: "Clopidogrel 75mg", category: "Kardiovaskular", stock: 120, unit: "Tablet", pricePerUnit: 18500, contraindications: ["Aspirin"] },
+  { id: "dr-2", code: "MED-ATV", name: "Atorvastatin 40mg", category: "Kardiovaskular", stock: 95, unit: "Tablet", pricePerUnit: 22000, contraindications: [] },
+  { id: "dr-3", code: "MED-PCT", name: "Paracetamol 500mg IV", category: "Analgesik", stock: 48, unit: "Vial Infus", pricePerUnit: 35000, contraindications: [] },
+  { id: "dr-4", code: "MED-RL", name: "Ringer Lactate 500ml", category: "Cairan Infus", stock: 240, unit: "Kolf", pricePerUnit: 14000, contraindications: [] },
+  { id: "dr-5", code: "MED-CTX", name: "Ceftriaxone 1g Injeksi", category: "Antibiotik", stock: 65, unit: "Vial", pricePerUnit: 45000, contraindications: ["Penicillin"] },
+  { id: "dr-6", code: "MED-EPI", name: "Epinephrine 1mg/ml", category: "Emergency Ampul", stock: 30, unit: "Ampul", pricePerUnit: 28000, contraindications: [] },
+];
+
 interface MediCoreContextType {
   patients: Patient[];
   beds: BedAsset[];
+  drugs: DrugItem[];
   prescriptions: PrescriptionOrder[];
   invoices: MedicalInvoice[];
   admitPatient: (patient: Omit<Patient, "id" | "mrn" | "admissionDate" | "status">) => void;
   dischargePatient: (patientId: string) => void;
   allocateBed: (bedId: string, patientId: string) => void;
   releaseBed: (bedId: string) => void;
+  createPrescription: (order: Omit<PrescriptionOrder, "id" | "status" | "createdAt">) => void;
   dispensePrescription: (prescriptionId: string) => void;
   payInvoice: (invoiceId: string) => void;
   selectedWard: WardType | "ALL";
@@ -31,6 +43,7 @@ const MediCoreContext = createContext<MediCoreContextType | undefined>(undefined
 export function MediCoreProvider({ children }: { children: React.ReactNode }) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [beds, setBeds] = useState<BedAsset[]>([]);
+  const [drugs, setDrugs] = useState<DrugItem[]>(MASTER_DRUGS);
   const [prescriptions, setPrescriptions] = useState<PrescriptionOrder[]>([]);
   const [invoices, setInvoices] = useState<MedicalInvoice[]>([]);
   const [selectedWard, setSelectedWard] = useState<WardType | "ALL">("ALL");
@@ -39,16 +52,18 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const savedPatients = localStorage.getItem("medicore_patients");
       const savedBeds = localStorage.getItem("medicore_beds");
+      const savedDrugs = localStorage.getItem("medicore_drugs");
       const savedPrescriptions = localStorage.getItem("medicore_prescriptions");
       const savedInvoices = localStorage.getItem("medicore_invoices");
 
       if (savedPatients && savedBeds) {
         setPatients(JSON.parse(savedPatients));
         setBeds(JSON.parse(savedBeds));
+        setDrugs(savedDrugs ? JSON.parse(savedDrugs) : MASTER_DRUGS);
         setPrescriptions(savedPrescriptions ? JSON.parse(savedPrescriptions) : []);
         setInvoices(savedInvoices ? JSON.parse(savedInvoices) : []);
       } else {
-        // Initial Seed Data
+        // Initial Seed Patients
         const seedPatients: Patient[] = [
           {
             id: "pt-1",
@@ -148,25 +163,44 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
             id: "rx-1",
             patientId: "pt-1",
             patientName: "Hendra Wijaya",
+            mrn: "RM-2026-001",
             doctorName: "dr. Aulia Sp.JP",
             medicineName: "Clopidogrel 75mg + Atorvastatin 40mg",
             dosage: "1x1 tablet malam",
-            instructions: "Post-STEMI antiplatelet protocol",
+            instructions: "Protokol antiplatelet pasca infark miokard akut",
             status: "PENDING",
-            hasInteractionRisk: false,
+            hasInteractionRisk: true,
+            interactionWarning: "Peringatan: Pasien memiliki alergi Aspirin. Clopidogrel aman sebagai terapi substitusi.",
+            totalCost: 165000,
             createdAt: "14:30",
           },
           {
             id: "rx-2",
             patientId: "pt-2",
             patientName: "Siti Rahmawati",
+            mrn: "RM-2026-002",
             doctorName: "dr. Bambang Sp.PD",
             medicineName: "Paracetamol 500mg IV + Ringer Lactate 500ml",
             dosage: "1 flash / 8 jam",
             instructions: "Demam DHF dan rehidrasi cairan intensif",
             status: "DISPENSED",
             hasInteractionRisk: false,
+            totalCost: 98000,
             createdAt: "12:00",
+          },
+          {
+            id: "rx-3",
+            patientId: "pt-3",
+            patientName: "Dimas Pratama",
+            mrn: "RM-2026-003",
+            doctorName: "dr. Faisal Sp.OT",
+            medicineName: "Ketorolac 30mg Ampul + Ranitidine",
+            dosage: "1 ampul IV extra cito",
+            instructions: "Analgesik fraktur tulang tertutup",
+            status: "DISPENSED",
+            hasInteractionRisk: false,
+            totalCost: 75000,
+            createdAt: "15:15",
           },
         ];
 
@@ -176,31 +210,57 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
             patientId: "pt-1",
             patientName: "Hendra Wijaya",
             mrn: "RM-2026-001",
-            inacbgCode: "I-4-10-I (Acute Myocardial Infarction)",
-            totalAmount: 18450000,
-            coverageAmount: 18450000,
-            patientPayAmount: 0,
+            nik: "3171012903840001",
+            ward: "Intensive Care Unit (ICU)",
+            inacbgCode: "I-4-10-I (Acute Myocardial Infarction Berat)",
+            diagnosisDescription: "Infark Miokard Akut dengan Elevasi Segmen ST (STEMI Anteroseptal)",
+            hospitalRealCost: 21850000,
+            inacbgTariffCovered: 21850000,
+            patientOutOfPocket: 0,
             insuranceType: "BPJS Kesehatan",
-            status: "MENUNGGU_VERIFIKASI",
+            status: "LUNAS",
             issuedDate: "2026-09-24",
+            doctorName: "dr. Aulia Sp.JP",
           },
           {
             id: "inv-2",
             patientId: "pt-2",
             patientName: "Siti Rahmawati",
             mrn: "RM-2026-002",
+            nik: "3275021208920003",
+            ward: "Rawat Inap Melati - Kamar 04",
             inacbgCode: "A-4-11-I (Dengue Fever with Complications)",
-            totalAmount: 5200000,
-            coverageAmount: 4800000,
-            patientPayAmount: 400000,
+            diagnosisDescription: "Demam Berdarah Dengue Grade II dengan Dehidrasi Sedang",
+            hospitalRealCost: 5200000,
+            inacbgTariffCovered: 4800000,
+            patientOutOfPocket: 400000,
             insuranceType: "Asuransi Swasta",
             status: "LUNAS",
             issuedDate: "2026-09-24",
+            doctorName: "dr. Bambang Sp.PD",
+          },
+          {
+            id: "inv-3",
+            patientId: "pt-3",
+            patientName: "Dimas Pratama",
+            mrn: "RM-2026-003",
+            nik: "3174092004780005",
+            ward: "Instalasi Gawat Darurat (Bed IGD-03)",
+            inacbgCode: "M-4-15-I (Fracture of Forearm/Radius Ulna)",
+            diagnosisDescription: "Fraktur Tertutup Radius Ulna Sinistra 1/3 Distal",
+            hospitalRealCost: 3850000,
+            inacbgTariffCovered: 3850000,
+            patientOutOfPocket: 0,
+            insuranceType: "BPJS Kesehatan",
+            status: "MENUNGGU_VERIFIKASI",
+            issuedDate: "2026-09-24",
+            doctorName: "dr. Faisal Sp.OT",
           },
         ];
 
         setPatients(seedPatients);
         setBeds(seedBeds);
+        setDrugs(MASTER_DRUGS);
         setPrescriptions(seedPrescriptions);
         setInvoices(seedInvoices);
       }
@@ -213,10 +273,11 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
     if (patients.length > 0) {
       localStorage.setItem("medicore_patients", JSON.stringify(patients));
       localStorage.setItem("medicore_beds", JSON.stringify(beds));
+      localStorage.setItem("medicore_drugs", JSON.stringify(drugs));
       localStorage.setItem("medicore_prescriptions", JSON.stringify(prescriptions));
       localStorage.setItem("medicore_invoices", JSON.stringify(invoices));
     }
-  }, [patients, beds, prescriptions, invoices]);
+  }, [patients, beds, drugs, prescriptions, invoices]);
 
   const admitPatient = (
     data: Omit<Patient, "id" | "mrn" | "admissionDate" | "status">
@@ -297,6 +358,28 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const createPrescription = (order: Omit<PrescriptionOrder, "id" | "status" | "createdAt">) => {
+    const newRx: PrescriptionOrder = {
+      ...order,
+      id: `rx-${Date.now()}`,
+      status: "PENDING",
+      createdAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setPrescriptions((prev) => [newRx, ...prev]);
+
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.5 },
+        colors: ["#f59e0b", "#10b981"],
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const dispensePrescription = (prescriptionId: string) => {
     setPrescriptions((prev) =>
       prev.map((rx) => (rx.id === prescriptionId ? { ...rx, status: "DISPENSED" } : rx))
@@ -314,12 +397,14 @@ export function MediCoreProvider({ children }: { children: React.ReactNode }) {
       value={{
         patients,
         beds,
+        drugs,
         prescriptions,
         invoices,
         admitPatient,
         dischargePatient,
         allocateBed,
         releaseBed,
+        createPrescription,
         dispensePrescription,
         payInvoice,
         selectedWard,
